@@ -64,7 +64,7 @@ void loop() {
         return;
     }
 
-    if (forward) {
+    if (forward) { //forward movement
         driveMotors(150, 150, true, true);
     }
     else if (backward) {
