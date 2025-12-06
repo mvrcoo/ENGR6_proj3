@@ -20,7 +20,6 @@
 #define echoPin 5
 
 // Line Sensors
-
 #define LINE_L A0
 #define LINE_M A1
 #define LINE_R A2

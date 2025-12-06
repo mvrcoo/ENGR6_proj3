@@ -14,6 +14,8 @@
 float maxAx = 0.0;
 float maxAy = 0.0;
 
+int mode = 0; // 0: Manual, 1: Autonomous
+
 SoftwareSerial bluetooth(BT_TX, BT_RX);
 //setup function
 void setup() {
@@ -68,11 +70,24 @@ void loop() {
     Serial.print(" R="); // Print right sensor value
     Serial.println(lineR);
 
+    // joystick packet processing
     while (bluetooth.available()) { // Process all available bytes
         char c = bluetooth.read(); // Read a byte from Bluetooth
         processJoystickPacket(c); // Process the joystick packet
     }
+    // Mode Switch
+    extern int joyButton;
 
+    if (joyButton == 1) {
+        mode = 1;
+        Serial.println("Mode: Autonomous");
+    }
+    if (joyButton == 2) {
+        mode = 0;
+        Serial.println("Mode: Manual");
+    }
+    // Mode 0 - Manual Control
+    if (mode == 0) {
     bool forward   = isForward(joyX);
     bool backward  = isBackward(joyX);
     bool leftTurn  = isLeft(joyY);
@@ -98,6 +113,49 @@ void loop() {
     else if (leftTurn) {
         int t = map(512 - joyY, 0, 511, 0, 255);
         driveMotors(t, t, false, true);
+    }
+    
+    return;
+
+    }
+    /*   Mode 1 - Autonomous Line Following.   */
+
+    if (mode == 1) {
+        Serial.println("autonomous mode running..,");
+    
+        int lineThreshold = 600; // Adjust based on calibration
+        
+        bool leftonLine = (lineL < lineThreshold);
+        bool midonLine  = (lineM < lineThreshold);
+        bool rightonLine= (lineR < lineThreshold);
+
+        //straight
+        if (midonLine && !leftonLine && !rightonLine) {
+            driveMotors(150, 150, true, true);
+            Serial.println("Going Straight");
+        }
+        // Turn Left
+        else if (leftonLine && !midonLine) {
+            driveMotors(120, 0, true, false);
+            Serial.println("Turning Left");
+        }
+        // Turn Right
+        else if (rightonLine && !midonLine) {
+            driveMotors(0, 120, false, true);
+            Serial.println("Turning Right");
+        }
+        // all black - stop
+        else if (leftonLine && midonLine && rightonLine) {
+            stopMotors();
+            Serial.println("Stopping - All Sensors on Line");
+        }
+        //Lost line - stop
+        else {
+            stopMotors();
+            Serial.println("Stopping - Line Lost");
+        }
+
+        return;
     }
 
     delay(50);
