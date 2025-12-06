@@ -6,9 +6,11 @@
 #include "ultrasonic.h"
 #include "joystick.h"
 #include "deadzone.h"
+#include "linefollow.h"
+
 
 SoftwareSerial bluetooth(BT_TX, BT_RX);
-
+//setup function
 void setup() {
     Serial.begin(115200);
     bluetooth.begin(9600);
@@ -26,7 +28,7 @@ void setup() {
 
     Serial.println("Autonomous Car + Crash Avoidance");
 }
-
+//void loop function
 void loop() {
 
     long dist = readDistance();
@@ -37,10 +39,18 @@ void loop() {
         delay(50);
         return;
     }
+    // Read line sensors
+    readLineSensors();
+    Serial.print("Line Sensors: L="); // Print left sensor value
+    Serial.print(lineL); 
+    Serial.print(" M="); // Print middle sensor value
+    Serial.print(lineM);
+    Serial.print(" R="); // Print right sensor value
+    Serial.println(lineR);
 
-    while (bluetooth.available()) {
-        char c = bluetooth.read();
-        processJoystickPacket(c);
+    while (bluetooth.available()) { // Process all available bytes
+        char c = bluetooth.read(); // Read a byte from Bluetooth
+        processJoystickPacket(c); // Process the joystick packet
     }
 
     bool forward   = isForward(joyX);
