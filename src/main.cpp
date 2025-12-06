@@ -7,7 +7,12 @@
 #include "joystick.h"
 #include "deadzone.h"
 #include "linefollow.h"
+#include "mpu.h"
+#include "eeprom_store.h"
 
+// Global variables
+float maxAx = 0.0;
+float maxAy = 0.0;
 
 SoftwareSerial bluetooth(BT_TX, BT_RX);
 //setup function
@@ -26,11 +31,26 @@ void setup() {
     pinMode(trigPin, OUTPUT);
     pinMode(echoPin, INPUT);
 
+    setupMPU();
+
     Serial.println("Autonomous Car + Crash Avoidance");
 }
 //void loop function
 void loop() {
 
+    float ax, ay, az;
+    readMPU(ax, ay, az);
+
+    if (abs(ax) > abs(maxAx)) maxAx = ax;
+    if (abs(ay) > abs(maxAy)) maxAy = ay;
+
+    saveMaxAccel(maxAx, maxAy);
+
+    Serial.print("Accel X: "); Serial.print(ax);
+    Serial.print(" Y: "); Serial.print(ay);
+    Serial.print(" Z: "); Serial.println(az);
+
+    // read distance from ultrasonic sensor
     long dist = readDistance();
     if (dist > 0 && dist < 20) {
         stopMotors();
