@@ -4,6 +4,8 @@
 extern int joyX;
 extern int joyY;
 
+extern int mode;
+
 void processJoystickPacket(char c);
 
 #endif

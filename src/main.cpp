@@ -36,21 +36,6 @@ void loop() {
         processJoystickPacket(c);
     }
 
-    // Mode toggle when joystick is centered 
-    bool centered = false;
-    if (joyX > 350 && joyX < 650) {
-        if (joyY > 350 && joyY < 650) centered = true;
-    }
-
-    static unsigned long lastToggle = 0;
-    if (centered) {
-        if (millis() - lastToggle > 500) {
-            if (mode == 0) mode = 1;
-            else mode = 0;
-            lastToggle = millis();
-        }
-    }
-
     // Mode print (only once per switch)
     static int lastMode = -1;
     if (lastMode != mode) {
@@ -92,37 +77,71 @@ void loop() {
         return;
     }
 
-    // MANUAL MODE
-    int x = joyX;
-    int y = joyY;
-    int dx = x - 512;
-    int dy = y - 512;
+// MANUAL MODE
+int x = joyX;
+int y = joyY;
 
-    if (dx < 40 && dx > -40) { dx = 0; x = 512; }
-    if (dy < 40 && dy > -40) { dy = 0; y = 512; }
+int speedValue = 0;
+String direction = "--";
 
-    String direction = "STOP";
-    if (dy < 0) direction = "FORWARD";
-    else if (dy > 0) direction = "BACKWARD";
-    else if (dx < 0) direction = "LEFT";
-    else if (dx > 0) direction = "RIGHT";
-
-    int speedValue = 0;
-    if (direction == "FORWARD")  speedValue = -dy;
-    if (direction == "BACKWARD") speedValue = dy;
-    if (direction == "LEFT")     speedValue = -dx;
-    if (direction == "RIGHT")    speedValue = dx;
-
-    if (direction == "FORWARD")      driveMotors(speedValue, speedValue, true, true);
-    else if (direction == "BACKWARD")driveMotors(speedValue, speedValue, false, false);
-    else if (direction == "LEFT")    driveMotors(speedValue, speedValue, false, true);
-    else if (direction == "RIGHT")   driveMotors(speedValue, speedValue, true, false);
-    else stopMotors();
-
+// DEADZONE
+if (abs(x - 512) < 40 && abs(y - 512) < 40) {
+    stopMotors();
     Serial.print("X: "); Serial.print(x);
     Serial.print("   Y: "); Serial.print(y);
     Serial.print("   Direction: "); Serial.print(direction);
     Serial.print("   Speed: "); Serial.println(speedValue);
+    return;
+}
 
-    delay(80); 
+// FORWARD (Y HIGH)   - backward
+if (y > 552) {
+    direction = "FORWARD";
+    speedValue = map(y, 552, 1023, 0, 255);
+    driveMotors(speedValue, speedValue, false, false);
+}
+
+// BACKWARD (Y LOW) --
+else if (y < 472) {
+    direction = "BACKWARD";
+    speedValue = map(512 - y, 0, 511, 0, 255);
+    driveMotors(speedValue, speedValue, true, true);
+}
+
+// RIGHT (X HIGH)
+else if (x > 552) {
+    direction = "RIGHT";
+    speedValue = map(x, 552, 1023, 0, 255);
+    driveMotors(speedValue, speedValue, false, true);
+}
+
+// LEFT (X LOW)
+else if (x < 472) {
+    direction = "LEFT";
+    speedValue = map(512 - x, 0, 511, 0, 255);
+    driveMotors(speedValue, speedValue, true, false);
+}
+
+// Only print when joystick is OUTSIDE deadzone OR direction is not neutral
+if (abs(x - 512) > 40 || abs(y - 512) > 40 || direction != "--") {
+
+    static int lastX = -1;
+    static int lastY = -1;
+    static String lastDir = "";
+    static int lastSpeed = -1;
+
+    // Only print when ACTUALLY changed
+    if (x != lastX || y != lastY || direction != lastDir || speedValue != lastSpeed) {
+        Serial.print("X: "); Serial.print(x);
+        Serial.print("   Y: "); Serial.print(y);
+        Serial.print("   Direction: "); Serial.print(direction);
+        Serial.print("   Speed: "); Serial.println(speedValue);
+
+        lastX = x;
+        lastY = y;
+        lastDir = direction;
+        lastSpeed = speedValue;
+    }
+}
+
 }
