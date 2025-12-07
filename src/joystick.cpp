@@ -4,25 +4,24 @@
 String raw = "";
 int joyX = 512;
 int joyY = 512;
-int joyButton = 0;
 
 void processJoystickPacket(char c) {
 
-    if (c == 3) {  
+    if (c == 3) {  // ETX = end of packet
         int commaIndex = raw.indexOf(',');
-        int secondCommaIndex = raw.indexOf(',', commaIndex + 1);
-        if (commaIndex > 0 && secondCommaIndex > commaIndex) {
-            String xs = raw.substring(raw.lastIndexOf(2) + 1, commaIndex);
-            String ys = raw.substring(commaIndex + 1, secondCommaIndex);
-            String sw = raw.substring(secondCommaIndex + 1);
+
+        if (commaIndex > 0) {
+            String xs = raw.substring(1, commaIndex);      // skip leading 'd'
+            String ys = raw.substring(commaIndex + 1);     // everything after comma
 
             joyX = xs.toInt();
             joyY = ys.toInt();
-            joyButton = sw.toInt();
         }
-        raw = "";
+
+        raw = "";   // reset buffer
     } 
     else {
-        raw += c;
+        raw += c;   // accumulate characters
+        Serial.println(raw);  // DEBUG PRINT
     }
 }

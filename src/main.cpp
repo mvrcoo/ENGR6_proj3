@@ -37,7 +37,7 @@ void setup() {
 
     Serial.println("Autonomous Car + Crash Avoidance");
 }
-//void loop function
+//LOOP function
 void loop() {
 
     float ax, ay, az;
@@ -75,17 +75,36 @@ void loop() {
         char c = bluetooth.read(); // Read a byte from Bluetooth
         processJoystickPacket(c); // Process the joystick packet
     }
-    // Mode Switch
-    extern int joyButton;
+    // Mode Switch (UPDATED)
+    static unsigned long firstTapTime = 0;
+    static bool waitingForSecondTap = false;
 
-    if (joyButton == 1) {
-        mode = 1;
-        Serial.println("Mode: Autonomous");
+    bool centered = (joyX > 480 && joyX < 540 && joyY > 480 && joyY < 540);
+    if (centered) {
+        if (!waitingForSecondTap) {
+            waitingForSecondTap = true;
+            firstTapTime = millis();
+        }
+        else {
+            if (millis() - firstTapTime < 400) {
+
+                if (mode == 0) {
+                    mode = 1;
+                    Serial.println("Mode: Autonomous");
+                }
+                else {
+                    mode = 0;
+                    Serial.println("Mode: Manual");
+                }
+            }
+            waitingForSecondTap = false;
+        }
     }
-    if (joyButton == 2) {
-        mode = 0;
-        Serial.println("Mode: Manual");
+
+    if (waitingForSecondTap && (millis() - firstTapTime > 400)) {
+        waitingForSecondTap = false;
     }
+
     // Mode 0 - Manual Control
     if (mode == 0) {
     bool forward   = isForward(joyX);
