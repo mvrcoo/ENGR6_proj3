@@ -24,5 +24,4 @@
 #define LINE_M A1
 #define LINE_R A2
 
-
 #endif
