@@ -18,29 +18,21 @@ void processJoystickPacket(char c) {
 
         start++; // Move to first digit after the control char
 
-        // 2. Find comma separating X and Y
         int commaIndex = raw.indexOf(',', start);
         if (commaIndex == -1) {
             raw = "";
             return;
         }
 
-        // 3. Extract X and Y
         String xs = raw.substring(start, commaIndex);
         String ys = raw.substring(commaIndex + 1);
 
         joyX = xs.toInt();
         joyY = ys.toInt();
 
-        Serial.print("Parsed X=");
-        Serial.print(joyX);
-        Serial.print(" Y=");
-        Serial.println(joyY);
-
         raw = "";
     }
     else {
         raw += c;
-        //Serial.println(raw);
     }
 }

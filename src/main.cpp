@@ -12,170 +12,117 @@
 
 float maxAx = 0.0;
 float maxAy = 0.0;
+int mode = 0;   // 0 = Manual, 1 = Autonomous
 
-// Mode: 0 = Manual, 1 = Autonomous
-int mode = 0;
-int lastMode = -1;
-
-// Bluetooth (HM-10)
 SoftwareSerial bluetooth(BT_TX, BT_RX);
 
 void setup() {
     Serial.begin(115200);
     bluetooth.begin(9600);
-    pinMode(enA, OUTPUT);
-    pinMode(in1, OUTPUT);
-    pinMode(in2, OUTPUT);
 
-    pinMode(enB, OUTPUT);
-    pinMode(in3, OUTPUT);
-    pinMode(in4, OUTPUT);
-
-    pinMode(trigPin, OUTPUT);
-    pinMode(echoPin, INPUT);
+    pinMode(enA, OUTPUT); pinMode(in1, OUTPUT); pinMode(in2, OUTPUT);
+    pinMode(enB, OUTPUT); pinMode(in3, OUTPUT); pinMode(in4, OUTPUT);
+    pinMode(trigPin, OUTPUT); pinMode(echoPin, INPUT);
 
     setupMPU();
-
-    Serial.println("Autonomous Car + Crash Avoidance");
+    Serial.println("Autonomous Car + Crash Avoidance Ready");
 }
 
 void loop() {
 
-    // Read all Bluetooth joystick packets
+    // Read Bluetooth packet
     while (bluetooth.available()) {
         char c = bluetooth.read();
         processJoystickPacket(c);
     }
 
-    // Joystick centered → toggle mode
-    bool centered =
-        (joyX > 350 && joyX < 650) &&
-        (joyY > 350 && joyY < 650);
+    // Mode toggle when joystick is centered 
+    bool centered = false;
+    if (joyX > 350 && joyX < 650) {
+        if (joyY > 350 && joyY < 650) centered = true;
+    }
 
     static unsigned long lastToggle = 0;
     if (centered) {
         if (millis() - lastToggle > 500) {
-
-            // Toggle between manual and autonomous
-            if (mode == 0) {
-                mode = 1;
-                Serial.println("Mode: Autonomous");
-            } else {
-                mode = 0;
-                Serial.println("Mode: Manual");
-            }
-
+            if (mode == 0) mode = 1;
+            else mode = 0;
             lastToggle = millis();
         }
     }
 
-    //AUTONOMOUS MODE (mode = 1)
+    // Mode print (only once per switch)
+    static int lastMode = -1;
+    if (lastMode != mode) {
+        if (mode == 0) Serial.println("Mode: Manual");
+        else Serial.println("Mode: Autonomous");
+        lastMode = mode;
+    }
+
+    // AUTONOMOUS MODE
     if (mode == 1) {
 
-        // Print mode only once (no spam)
-        if (lastMode != mode) {
-            Serial.println("Mode: Autonomous");
-            lastMode = mode;
-        }
-        Serial.println("autonomous mode running..,");
-        // Read line sensors
         readLineSensors();
-        int threshold = 600;
-        bool L = (lineL < threshold);
-        bool M = (lineM < threshold);
-        bool R = (lineR < threshold);
 
-        // None of the sensors detect the line
-        if (!L && !M && !R) {
-            Serial.println("Line not detected — holding still");
+        bool L = (lineL < 600);
+        bool M = (lineM < 600);
+        bool R = (lineR < 600);
+
+        int pattern = 0;
+        if (L) pattern |= 1;
+        if (M) pattern |= 2;
+        if (R) pattern |= 4;
+
+        if (pattern == 0) {
             stopMotors();
             return;
         }
-        // Crash avoidance
+
         long dist = readDistance();
         if (dist > 0 && dist < 15) {
-            Serial.println("Stopping - Object Too Close");
             stopMotors();
             return;
         }
 
-        // Line following behavior
-        if (M && !L && !R) {
-            Serial.println("Going Straight");
-            driveMotors(150, 150, true, true);
-        }
-        else if (L && !M) {
-            Serial.println("Turning Left");
-            driveMotors(120, 0, true, false);
-        }
-        else if (R && !M) {
-            Serial.println("Turning Right");
-            driveMotors(0, 120, false, true);
-        }
-        else if (L && M && R) {
-            Serial.println("Stopping - All Sensors on Line");
-            stopMotors();
-        }
-        else {
-            Serial.println("Stopping - Unknown Line Pattern");
-            stopMotors();
-        }
+        if (pattern == 2)      driveMotors(150, 150, true, true);   // Straight
+        else if (pattern == 1) driveMotors(120, 0,   true, false);  // Left
+        else if (pattern == 4) driveMotors(0,   120, false, true);  // Right
+        else                   stopMotors();
 
         return;
     }
 
-    //  MANUAL MODE (mode = 0)
-    if (lastMode != mode) {
-        Serial.println("Mode: Manual");
-        lastMode = mode;
-    }
+    // MANUAL MODE
+    int x = joyX;
+    int y = joyY;
+    int dx = x - 512;
+    int dy = y - 512;
 
-    // Local joystick values
-    int lx = joyX;
-    int ly = joyY;
-    if (abs(lx - 512) < 40) lx = 512;
-    if (abs(ly - 512) < 40) ly = 512;
-    int speedX = lx - 512;
-    int speedY = 512 - ly;
-    if (speedX < 0) speedX = -speedX;
-    if (speedY < 0) speedY = -speedY;
+    if (dx < 40 && dx > -40) { dx = 0; x = 512; }
+    if (dy < 40 && dy > -40) { dy = 0; y = 512; }
 
     String direction = "STOP";
+    if (dy < 0) direction = "FORWARD";
+    else if (dy > 0) direction = "BACKWARD";
+    else if (dx < 0) direction = "LEFT";
+    else if (dx > 0) direction = "RIGHT";
 
-    if (ly < 400) {
-        direction = "FORWARD";
-        driveMotors(180, 180, true, true);
-    }
-    else if (ly > 600) {
-        direction = "BACKWARD";
-        driveMotors(180, 180, false, false);
-    }
-    else if (lx < 400) {
-        direction = "LEFT";
-        driveMotors(150, 150, false, true);
-    }
-    else if (lx > 600) {
-        direction = "RIGHT";
-        driveMotors(150, 150, true, false);
-    }
-    else {
-        stopMotors();
-    }
+    int speedValue = 0;
+    if (direction == "FORWARD")  speedValue = -dy;
+    if (direction == "BACKWARD") speedValue = dy;
+    if (direction == "LEFT")     speedValue = -dx;
+    if (direction == "RIGHT")    speedValue = dx;
 
-    // Speed display depends on direction
-    int displaySpeed = 0;
-    if (direction == "FORWARD") displaySpeed = speedY;
-    else if (direction == "BACKWARD") displaySpeed = speedY;
-    else if (direction == "LEFT") displaySpeed = speedX;
-    else if (direction == "RIGHT") displaySpeed = speedX;
+    if (direction == "FORWARD")      driveMotors(speedValue, speedValue, true, true);
+    else if (direction == "BACKWARD")driveMotors(speedValue, speedValue, false, false);
+    else if (direction == "LEFT")    driveMotors(speedValue, speedValue, false, true);
+    else if (direction == "RIGHT")   driveMotors(speedValue, speedValue, true, false);
+    else stopMotors();
 
-    // Output joystick + motor info
-    Serial.print("X: ");
-    Serial.print(lx);
-    Serial.print("   Y: ");
-    Serial.print(ly);
-    Serial.print("   Direction: ");
-    Serial.print(direction);
-    Serial.print("   Speed: ");
-    Serial.println(displaySpeed);
+    Serial.print("X: "); Serial.print(x);
+    Serial.print("   Y: "); Serial.print(y);
+    Serial.print("   Direction: "); Serial.print(direction);
+    Serial.print("   Speed: "); Serial.println(speedValue);
+
+    delay(80); 
 }

@@ -1,5 +1,5 @@
-#ifndef Pins
-#define Pins
+#ifndef PINS_H
+#define PINS_H
 
 // Bluetooth
 #define BT_TX 2
