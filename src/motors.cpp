@@ -2,14 +2,27 @@
 #include "pins.h"
 
 void driveMotors(int Ls, int Rs, bool Lf, bool Rf) {
-    if (Lf) { digitalWrite(in1, HIGH); digitalWrite(in2, LOW); } 
-    else    { digitalWrite(in1, LOW); digitalWrite(in2, HIGH); }
 
+    // LEFT MOTOR (unchanged)
+    if (Lf) { 
+        digitalWrite(in1, HIGH); 
+        digitalWrite(in2, LOW);  
+    } 
+    else { 
+        digitalWrite(in1, LOW); 
+        digitalWrite(in2, HIGH); 
+    }
     analogWrite(enA, Ls);
 
-    if (Rf) { digitalWrite(in3, HIGH); digitalWrite(in4, LOW); } 
-    else    { digitalWrite(in3, LOW); digitalWrite(in4, HIGH); }
-    
+    // RIGHT MOTOR (FIXED POLARITY)
+    if (Rf) { 
+        digitalWrite(in3, LOW); 
+        digitalWrite(in4, HIGH); 
+    } 
+    else { 
+        digitalWrite(in3, HIGH); 
+        digitalWrite(in4, LOW); 
+    }
     analogWrite(enB, Rs);
 }
 
