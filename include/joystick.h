@@ -3,6 +3,7 @@
 
 extern int joyX;
 extern int joyY;
+extern int joyButton;
 
 void processJoystickPacket(char c);
 
