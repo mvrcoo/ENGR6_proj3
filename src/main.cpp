@@ -28,6 +28,10 @@ void setup() {
     pinMode(in4, OUTPUT);
     pinMode(trigPin, OUTPUT); 
     pinMode(echoPin, INPUT);
+    // Line sensor Digital Inputs
+    pinMode(LINE_L, INPUT_PULLUP);
+    pinMode(LINE_M, INPUT_PULLUP);
+    pinMode(LINE_R, INPUT_PULLUP);
 
     setupMPU();
     Serial.println("Autonomous Car + Crash Avoidance Ready");
@@ -60,72 +64,69 @@ void loop() {
         lastMode = mode;
     }
 
-    // AUTONOMOUS MODE
-    if (mode == 1) {
+// AUTONOMOUS MODE
+if (mode == 1) {
 
-        readLineSensors();
+    // Digital line sensors: HIGH = white, LOW = black
+    bool L = (digitalRead(LINE_L) == HIGH);
+    bool M = (digitalRead(LINE_M) == HIGH);
+    bool R = (digitalRead(LINE_R) == HIGH);
 
-        bool L = (lineL < 600);
-        bool M = (lineM < 600);
-        bool R = (lineR < 600);
-
-        int pattern = 0;
-        if (L) pattern |= 1;
-        if (M) pattern |= 2;
-        if (R) pattern |= 4;
-
-        long dist = readDistance();
-
-        // Movement decisions
-        if (pattern == 0) { stopMotors(); }
-        else if (dist > 0 && dist < 15) { stopMotors(); }
-        else if (pattern == 2) { driveMotors(150, 150, true, true); }
-        else if (pattern == 1) { driveMotors(120, 0, true, false); }
-        else if (pattern == 4) { driveMotors(0, 120, false, true); }
-
-        // Timed autonomous print
-        static unsigned long lastAutoPrint = 0;
-
-        if (millis() - lastAutoPrint >= 150) {
-
-            Serial.print("L: "); Serial.print(lineL);
-            Serial.print("   M: "); Serial.print(lineM);
-            Serial.print("   R: "); Serial.print(lineR);
-            Serial.println();
-
-            Serial.print("Course: ");
-            if (pattern == 2) Serial.print("Straight");
-            else if (pattern == 1) Serial.print("Adjust Left");
-            else if (pattern == 4) Serial.print("Adjust Right");
-            else Serial.print("No Line -> Stopping");
-            Serial.println();
-
-            Serial.print("Dist: "); 
-            Serial.print(dist); 
-            Serial.println(" cm");
-
-            if (dist > 0 && dist < 15) {
-                Serial.println("Course: Obstacle -> Stopping");
-            }
-
-            float ax, ay, az;
-            readMPU(ax, ay, az);
-
-            Serial.print("Ax: "); Serial.print(ax);
-            Serial.print("   Ay: "); Serial.print(ay);
-
-            if (abs(ax) > abs(maxAx)) maxAx = ax;
-            if (abs(ay) > abs(maxAy)) maxAy = ay;
-
-            Serial.print("   MaxAx: "); Serial.print(maxAx);
-            Serial.println();
-
-            lastAutoPrint = millis();
-        }
-
-        return;
+    long dist = readDistance();
+    if (dist > 0 && dist < 15) {
+        stopMotors();
     }
+    // All WHITE -> off the black line -> STOP
+    else if (L && M && R) {
+        stopMotors();
+    }
+    // Middle BLACK, sides WHITE -> go straight
+    else if (L && !M && R) {
+        driveMotors(150, 150, false, false);   // forward
+    }
+    // Left BLACK cases -> turn left
+    else if (!L && M && R) {                   // adjust left
+        driveMotors(0, 130, false, false);     // right motor forward
+    }
+    else if (!L && !M && R) {                  // hard left
+        driveMotors(0, 130, false, false);
+    }
+    // Right BLACK cases -> turn right
+    else if (L && M && !R) {                   // adjust right
+        driveMotors(130, 0, false, false);     // left motor forward
+    }
+    else if (L && !M && !R) {                  // hard right
+        driveMotors(130, 0, false, false);
+    }
+    // Any weird combo -> STOP
+    else {
+        stopMotors();
+    }
+    // debugging + MPU reading + maxAx / maxAy tracking
+    static unsigned long lastAutoPrint = 0;
+    if (millis() - lastAutoPrint >= 150) {
 
+        // Line sensor state (print as 0/1)
+        Serial.print("L: "); Serial.print(L);
+        Serial.print("   M: "); Serial.print(M);
+        Serial.print("   R: "); Serial.println(R);
+        Serial.print("Dist: "); Serial.print(dist); Serial.println(" cm");
+        // MPU readings + maxAx / maxAy tracking
+        float ax, ay, az;
+        readMPU(ax, ay, az);
+
+        if (abs(ax) > abs(maxAx)) maxAx = ax;
+        if (abs(ay) > abs(maxAy)) maxAy = ay;
+
+        Serial.print("Ax: "); Serial.print(ax);
+        Serial.print("   Ay: "); Serial.print(ay);
+        Serial.print("   MaxAx: "); Serial.print(maxAx);
+        Serial.print("   MaxAy: "); Serial.println(maxAy);
+
+        lastAutoPrint = millis();
+    }
+    return;
+}
     // MANUAL MODE
     int x = joyX;
     int y = joyY;
@@ -150,7 +151,6 @@ void loop() {
         }
         return;
     }
-
     // MOVEMENT LOGIC
     if (y > 552) {
         direction = "FORWARD";
@@ -172,7 +172,6 @@ void loop() {
         speedValue = map(512 - x, 0, 511, 0, 255);
         driveMotors(speedValue, speedValue, true, false);
     }
-
     // TIMED MANUAL PRINT
     static unsigned long lastPrint = 0;
     bool moving = !(abs(x - 512) < 40 && abs(y - 512) < 40);

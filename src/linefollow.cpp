@@ -1,13 +1,11 @@
-#include <Arduino.h>
-#include "pins.h"
 #include "linefollow.h"
+#include "pins.h"
+#include <Arduino.h>
 
-int lineL = 0;
-int lineM = 0;
-int lineR = 0;
+int lineL, lineM, lineR;
 
 void readLineSensors() {
-    lineL = analogRead(LINE_L);
-    lineM = analogRead(LINE_M);
-    lineR = analogRead(LINE_R);
+    lineL = digitalRead(LINE_L);
+    lineM = digitalRead(LINE_M);
+    lineR = digitalRead(LINE_R);
 }
