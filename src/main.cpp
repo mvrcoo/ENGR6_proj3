@@ -34,26 +34,32 @@ void setup() {
 }
 
 void loop() {
+
     // Read Bluetooth packet
     while (bluetooth.available()) {
         char c = bluetooth.read();
         processJoystickPacket(c);
     }
-
-    // Mode print (only once per mode switch)
+    // MODE CHANGE HANDLING + AUTO-SAVE ON EXIT FROM AUTONOMOUS
     static int lastMode = -1;
+
     if (lastMode != mode) {
+
+        // If LEAVING autonomous mode → save max acceleration
+        if (lastMode == 1 && mode == 0) {
+            Serial.println("Saving Max Acceleration to EEPROM...");
+            saveMaxAccel(maxAx, maxAy);
+            Serial.print("Saved MaxAx: "); Serial.print(maxAx);
+            Serial.print("   MaxAy: "); Serial.println(maxAy);
+        }
+
+        // Now print new mode
         if (mode == 0) Serial.println("Mode: Manual");
         else Serial.println("Mode: Autonomous");
-        // SAVE EEPROM WHEN EXITING AUTONOMOUS MODE
-        if (lastMode == 1 && mode == 0) {
-        saveMaxAccel(maxAx, maxAy);
-        Serial.print("Saved MaxAx: "); Serial.print(maxAx);
-        Serial.print("   MaxAy: "); Serial.println(maxAy);
-}
 
         lastMode = mode;
     }
+
     // AUTONOMOUS MODE
     if (mode == 1) {
 
@@ -71,24 +77,22 @@ void loop() {
         long dist = readDistance();
 
         // Movement decisions
-        if (pattern == 0) {stopMotors();}
-        else if (dist > 0 && dist < 15) {stopMotors();}
-        else if (pattern == 2) {driveMotors(150, 150, true, true); }   // Forward
-        else if (pattern == 1) {driveMotors(120, 0, true, false); }  // Left
-        else if (pattern == 4) {driveMotors(0, 120, false, true); }   // Right
+        if (pattern == 0) { stopMotors(); }
+        else if (dist > 0 && dist < 15) { stopMotors(); }
+        else if (pattern == 2) { driveMotors(150, 150, true, true); }
+        else if (pattern == 1) { driveMotors(120, 0, true, false); }
+        else if (pattern == 4) { driveMotors(0, 120, false, true); }
 
-        //AUTONOMOUS TIMED DEBUG PRINt
+        // Timed autonomous print
         static unsigned long lastAutoPrint = 0;
 
         if (millis() - lastAutoPrint >= 150) {
 
-            // Line sensor readings
             Serial.print("L: "); Serial.print(lineL);
             Serial.print("   M: "); Serial.print(lineM);
             Serial.print("   R: "); Serial.print(lineR);
             Serial.println();
 
-            // Course status
             Serial.print("Course: ");
             if (pattern == 2) Serial.print("Straight");
             else if (pattern == 1) Serial.print("Adjust Left");
@@ -96,24 +100,20 @@ void loop() {
             else Serial.print("No Line -> Stopping");
             Serial.println();
 
-            // Distance reading
             Serial.print("Dist: "); 
             Serial.print(dist); 
             Serial.println(" cm");
 
-            // Obstacle detected
             if (dist > 0 && dist < 15) {
                 Serial.println("Course: Obstacle -> Stopping");
             }
 
-            // ACCELEROMETER
             float ax, ay, az;
             readMPU(ax, ay, az);
 
             Serial.print("Ax: "); Serial.print(ax);
             Serial.print("   Ay: "); Serial.print(ay);
 
-            // Update maximum acceleration recorded
             if (abs(ax) > abs(maxAx)) maxAx = ax;
             if (abs(ay) > abs(maxAy)) maxAy = ay;
 
@@ -123,8 +123,9 @@ void loop() {
             lastAutoPrint = millis();
         }
 
-        return; // END AUTONOMOUS MODE
+        return;
     }
+
     // MANUAL MODE
     int x = joyX;
     int y = joyY;
@@ -132,7 +133,7 @@ void loop() {
     int speedValue = 0;
     String direction = "--";
 
-    // DEADZONE PRINT (slowed)
+    // DEADZONE PRINT
     if (abs(x - 512) < 40 && abs(y - 512) < 40) {
         stopMotors();
         direction = "--";
@@ -150,32 +151,29 @@ void loop() {
         return;
     }
 
-    // FORWARD
+    // MOVEMENT LOGIC
     if (y > 552) {
         direction = "FORWARD";
         speedValue = map(y, 552, 1023, 0, 255);
         driveMotors(speedValue, speedValue, false, false);
     }
-    // BACKWARD
     else if (y < 472) {
         direction = "BACKWARD";
         speedValue = map(512 - y, 0, 511, 0, 255);
         driveMotors(speedValue, speedValue, true, true);
     }
-    // RIGHT
     else if (x > 552) {
         direction = "RIGHT";
         speedValue = map(x, 552, 1023, 0, 255);
         driveMotors(speedValue, speedValue, false, true);
     }
-    // LEFT
     else if (x < 472) {
         direction = "LEFT";
         speedValue = map(512 - x, 0, 511, 0, 255);
         driveMotors(speedValue, speedValue, true, false);
     }
 
-    // TIMED PRINT FOR MOVEMENT
+    // TIMED MANUAL PRINT
     static unsigned long lastPrint = 0;
     bool moving = !(abs(x - 512) < 40 && abs(y - 512) < 40);
 

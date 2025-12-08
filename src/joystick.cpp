@@ -8,7 +8,7 @@ int joyY = 512;
 
 void processJoystickPacket(char c) {
 
-    // BUTTON HANDLING FOR D0 / D1 WHEN SENT AS SINGLE-BYTE PACKETS
+    // Button handling outside of full packets for D0, D1, D2
     if (c == 'D') {
         raw = "D";
         return;
@@ -28,19 +28,22 @@ void processJoystickPacket(char c) {
         else if (raw == "D2") {
             Serial.println("BUTTON D2 PRESSED (EEPROM Read)");
 
-            float savedAx, savedAy;
+            float savedAx = 0, savedAy = 0;
             loadMaxAccel(savedAx, savedAy);
 
             Serial.println("EEPROM Stored Acceleration:");
             Serial.print("MaxAx: "); Serial.println(savedAx);
             Serial.print("MaxAy: "); Serial.println(savedAy);
+
+            Serial.println("-------------------------------");
+            delay(1000);  // pause so output doesn't get buried
         }
 
         raw = "";
         return;
     }
 
-    // EXISTING JOYSTICK PACKET PARSER
+    // Joystick packet handling
     if (c == 3) {  // ETX (end of packet)
 
         int start = raw.indexOf(char(2)); // STX
@@ -69,13 +72,16 @@ void processJoystickPacket(char c) {
 
         if (raw.indexOf("D2") != -1) {
             Serial.println("BUTTON D2 PRESSED (EEPROM Read)");
-            
-            float savedAx, savedAy;
+
+            float savedAx = 0, savedAy = 0;
             loadMaxAccel(savedAx, savedAy);
 
             Serial.println("EEPROM Stored Acceleration:");
             Serial.print("MaxAx: "); Serial.println(savedAx);
             Serial.print("MaxAy: "); Serial.println(savedAy);
+
+            Serial.println("-------------------------------");
+            delay(1000);
         }
 
         raw = "";
