@@ -1,5 +1,10 @@
+#include <Arduino.h>
 #include <EEPROM.h>
 #include "eeprom_store.h"
+
+//eeprom addresses
+int addrAx = 0;  //4 bytes
+int addrAy = sizeof(float);  //4 bytes
 
 void saveMaxAccel(float ax, float ay) {
     EEPROM.put(0, ax);  
