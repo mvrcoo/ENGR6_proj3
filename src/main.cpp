@@ -64,69 +64,79 @@ void loop() {
         lastMode = mode;
     }
 
-// AUTONOMOUS MODE
+// =============================================
+// AUTONOMOUS MODE — LEFT SENSOR FIX + MOVEMENT RESTORED
+// =============================================
 if (mode == 1) {
 
-    // Digital line sensors: HIGH = white, LOW = black
-    bool L = (digitalRead(LINE_L) == HIGH);
-    bool M = (digitalRead(LINE_M) == HIGH);
-    bool R = (digitalRead(LINE_R) == HIGH);
+    int Lraw = digitalRead(LINE_L);
+    int Rraw = digitalRead(LINE_R);
 
     long dist = readDistance();
-    if (dist > 0 && dist < 15) {
+
+    // ---------------------------------------------------------
+    // FIX LEFT SENSOR POLARITY ONLY
+    // ---------------------------------------------------------
+    // Left sensor is reversed (HIGH = black)
+    bool Lblack = (Lraw == HIGH);
+    bool Lwhite = !Lblack;
+
+    // Right sensor normal (LOW = black)
+    bool Rblack = (Rraw == LOW);
+    bool Rwhite = !Rblack;
+
+    // ---------------------------------------------------------
+    // OBSTACLE STOP ONLY
+    // ---------------------------------------------------------
+    if (dist > 0 && dist < 12) {
         stopMotors();
+        return;
     }
-    // All WHITE -> off the black line -> STOP
-    else if (L && M && R) {
-        stopMotors();
+
+    // ---------------------------------------------------------
+    // MOVE FORWARD SLOWER (so it can follow the tape)
+    // ---------------------------------------------------------
+    int base = 70;      // forward speed
+    int adjustLow = 50; // correction slow wheel
+    int adjustHigh = 85;// correction fast wheel
+
+    // ---------------------------------------------------------
+    // LINE FOLLOWING — SAME LOGIC AS BEFORE BUT FIXED
+    // ---------------------------------------------------------
+
+    // BOTH BLACK → centered → go forward
+    if (Lblack && Rblack) {
+        driveMotors(base, base, false, false);
     }
-    // Middle BLACK, sides WHITE -> go straight
-    else if (L && !M && R) {
-        driveMotors(150, 150, false, false);   // forward
+    // LEFT BLACK → turn left
+    else if (Lblack && Rwhite) {
+        driveMotors(adjustLow, adjustHigh, false, false);
     }
-    // Left BLACK cases -> turn left
-    else if (!L && M && R) {                   // adjust left
-        driveMotors(0, 130, false, false);     // right motor forward
+    // RIGHT BLACK → turn right
+    else if (Rblack && Lwhite) {
+        driveMotors(adjustHigh, adjustLow, false, false);
     }
-    else if (!L && !M && R) {                  // hard left
-        driveMotors(0, 130, false, false);
-    }
-    // Right BLACK cases -> turn right
-    else if (L && M && !R) {                   // adjust right
-        driveMotors(130, 0, false, false);     // left motor forward
-    }
-    else if (L && !M && !R) {                  // hard right
-        driveMotors(130, 0, false, false);
-    }
-    // Any weird combo -> STOP
     else {
-        stopMotors();
+        // fallback forward (never stop)
+        driveMotors(base, base, false, false);
     }
-    // debugging + MPU reading + maxAx / maxAy tracking
-    static unsigned long lastAutoPrint = 0;
-    if (millis() - lastAutoPrint >= 150) {
 
-        // Line sensor state (print as 0/1)
-        Serial.print("L: "); Serial.print(L);
-        Serial.print("   M: "); Serial.print(M);
-        Serial.print("   R: "); Serial.println(R);
-        Serial.print("Dist: "); Serial.print(dist); Serial.println(" cm");
-        // MPU readings + maxAx / maxAy tracking
-        float ax, ay, az;
-        readMPU(ax, ay, az);
-
-        if (abs(ax) > abs(maxAx)) maxAx = ax;
-        if (abs(ay) > abs(maxAy)) maxAy = ay;
-
-        Serial.print("Ax: "); Serial.print(ax);
-        Serial.print("   Ay: "); Serial.print(ay);
-        Serial.print("   MaxAx: "); Serial.print(maxAx);
-        Serial.print("   MaxAy: "); Serial.println(maxAy);
-
-        lastAutoPrint = millis();
+    // ---------------------------------------------------------
+    // DEBUG
+    // ---------------------------------------------------------
+    static unsigned long last = 0;
+    if (millis() - last >= 150) {
+        Serial.print("Lraw: "); Serial.print(Lraw);
+        Serial.print("  Rraw: "); Serial.print(Rraw);
+        Serial.print("  Lblack: "); Serial.print(Lblack);
+        Serial.print("  Rblack: "); Serial.println(Rblack);
+        last = millis();
     }
+
     return;
 }
+
+
     // MANUAL MODE
     int x = joyX;
     int y = joyY;
