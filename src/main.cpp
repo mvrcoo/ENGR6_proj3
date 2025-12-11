@@ -64,70 +64,46 @@ void loop() {
         lastMode = mode;
     }
 
-// =============================================
-// AUTONOMOUS MODE — LEFT SENSOR FIX + MOVEMENT RESTORED
-// =============================================
+// AUTONOMOUS MODE
 if (mode == 1) {
 
-    int Lraw = digitalRead(LINE_L);
-    int Rraw = digitalRead(LINE_R);
-
+    int Lraw = analogRead(LINE_L);
+    int Rraw = analogRead(LINE_R);
     long dist = readDistance();
 
-    // ---------------------------------------------------------
-    // FIX LEFT SENSOR POLARITY ONLY
-    // ---------------------------------------------------------
-    // Left sensor is reversed (HIGH = black)
-    bool Lblack = (Lraw == HIGH);
-    bool Lwhite = !Lblack;
+    // dynamic threshold so sensors stop drifting
+    int TH = (Lraw + Rraw) / 2;
 
-    // Right sensor normal (LOW = black)
-    bool Rblack = (Rraw == LOW);
-    bool Rwhite = !Rblack;
+    bool Lblack = (Lraw > TH);
+    bool Rblack = (Rraw > TH);
 
-    // ---------------------------------------------------------
-    // OBSTACLE STOP ONLY
-    // ---------------------------------------------------------
     if (dist > 0 && dist < 12) {
         stopMotors();
         return;
     }
 
-    // ---------------------------------------------------------
-    // MOVE FORWARD SLOWER (so it can follow the tape)
-    // ---------------------------------------------------------
-    int base = 70;      // forward speed
-    int adjustLow = 50; // correction slow wheel
-    int adjustHigh = 85;// correction fast wheel
+    int base = 70;
+    int adjustLow = 50;
+    int adjustHigh = 85;
 
-    // ---------------------------------------------------------
-    // LINE FOLLOWING — SAME LOGIC AS BEFORE BUT FIXED
-    // ---------------------------------------------------------
-
-    // BOTH BLACK → centered → go forward
     if (Lblack && Rblack) {
         driveMotors(base, base, false, false);
     }
-    // LEFT BLACK → turn left
-    else if (Lblack && Rwhite) {
+    else if (Lblack && !Rblack) {
         driveMotors(adjustLow, adjustHigh, false, false);
     }
-    // RIGHT BLACK → turn right
-    else if (Rblack && Lwhite) {
+    else if (Rblack && !Lblack) {
         driveMotors(adjustHigh, adjustLow, false, false);
     }
     else {
-        // fallback forward (never stop)
-        driveMotors(base, base, false, false);
+        driveMotors(60, 60, false, false);
     }
 
-    // ---------------------------------------------------------
-    // DEBUG
-    // ---------------------------------------------------------
     static unsigned long last = 0;
     if (millis() - last >= 150) {
         Serial.print("Lraw: "); Serial.print(Lraw);
         Serial.print("  Rraw: "); Serial.print(Rraw);
+        Serial.print("  TH: "); Serial.print(TH);
         Serial.print("  Lblack: "); Serial.print(Lblack);
         Serial.print("  Rblack: "); Serial.println(Rblack);
         last = millis();
